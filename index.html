@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Inventario Móvil</title>
+    <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        :root {
+            --primary-bg: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --button-bg: #6200ee;
+            --button-text: #ffffff;
+            --low-inventory-bg: #ffebee;
+            --accent-color: #6200ee;
+        }
+        .theme-dark {
+            --primary-bg: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --button-bg: #bb86fc;
+            --button-text: #000000;
+            --low-inventory-bg: #4a2c2a;
+            --accent-color: #bb86fc;
+        }
+        .theme-blue {
+            --primary-bg: #e3f2fd;
+            --card-bg: #ffffff;
+            --text-color: #0d47a1;
+            --button-bg: #1976d2;
+            --button-text: #ffffff;
+            --low-inventory-bg: #ffcdd2;
+            --accent-color: #1976d2;
+        }
+        .theme-green {
+            --primary-bg: #e8f5e9;
+            --card-bg: #ffffff;
+            --text-color: #1b5e20;
+            --button-bg: #2e7d32;
+            --button-text: #ffffff;
+            --low-inventory-bg: #ffcdd2;
+            --accent-color: #2e7d32;
+        }
+        body {
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            overscroll-behavior: none;
+            touch-action: pan-y;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .container {
+            max-width: 428px;
+            margin: 0 auto;
+            padding: 16px max(env(safe-area-inset-left), 8px) 16px max(env(safe-area-inset-right), 8px);
+            min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        }
+        .mdc-top-app-bar {
+            position: fixed;
+            top: env(safe-area-inset-top);
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 10;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        .content {
+            margin-top: calc(64px + env(safe-area-inset-top));
+            padding-bottom: env(safe-area-inset-bottom);
+            will-change: transform;
+        }
+        .mdc-card {
+            margin-bottom: 12px;
+            padding: 12px;
+            cursor: pointer;
+            touch-action: manipulation;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        .inventory-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .product-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .product-card img {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .product-list, .inventory-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        .list-view .product-card {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .list-view .product-card img {
+            width: 100%;
+            max-width: 150px;
+        }
+        .low-inventory {
+            background-color: var(--low-inventory-bg);
+        }
+        .dialog-content {
+            padding: 16px;
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            color: var(--text-color);
+        }
+        .mdc-text-field, .mdc-select {
+            margin-bottom: 12px;
+            width: 100%;
+            font-size: 16px;
+        }
+        .mdc-text-field__input, .mdc-select__selected-text {
+            color: var(--text-color);
+        }
+        .mdc-button, .mdc-icon-button {
+            min-width: 44px;
+            min-height: 44px;
+            font-size: 14px;
+            touch-action: manipulation;
+        }
+        .mdc-button--raised {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+        }
+        .mdc-button--outlined {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+        .filter-section {
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .restock-message {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: var(--text-color);
+        }
+        .mdc-form-field {
+            font-size: 14px;
+            color: var(--text-color);
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 150px;
+            margin-bottom: 12px;
+            display: none;
+            border-radius: 4px;
+        }
+        .image-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        @media (min-width: 390px) and (max-width: 428px) {
+            .mdc-top-app-bar__title {
+                font-size: 18px;
+            }
+            .mdc-button, .mdc-icon-button {
+                padding: 8px;
+            }
+            .product-card h3 {
+                font-size: 16px;
+            }
+            .product-card p {
+                font-size: 14px;
+            }
+        }
+        @media (max-width: 389px) {
+            .container {
+                padding: 8px;
+            }
+            .mdc-top-app-bar__title {
+                font-size: 16px;
+            }
+            .mdc-button, .mdc-icon-button {
+                padding: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="mdc-top-app-bar mdc-top-app-bar--fixed">
+        <div class="mdc-top-app-bar__row">
+            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                <button class="mdc-icon-button material-icons" id="back-btn" style="display: none;">arrow_back</button>
+                <span class="mdc-top-app-bar__title" id="app-title">Inventario Móvil</span>
+            </section>
+            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+                <button class="mdc-icon-button material-icons" id="add-product-btn" style="display: none;">add</button>
+                <button class="mdc-icon-button material-icons" id="settings-btn" style="display: none;">settings</button>
+                <button class="mdc-icon-button material-icons" id="toggle-view-btn" style="display: none;">view_module</button>
+                <button class="mdc-icon-button material-icons" id="add-inventory-btn">add_circle</button>
+            </section>
+        </div>
+    </header>
+    <main class="content container">
+        <div id="inventory-list" class="inventory-list"></div>
+        <div id="inventory-management" style="display: none;">
+            <div class="filter-section">
+                <div class="mdc-text-field mdc-text-field--outlined" style="flex: 1;">
+                    <input class="mdc-text-field__input" id="search-input" type="text" placeholder="Buscar productos...">
+                    <div class="mdc-notched-outline">
+                        <div class="mdc-notched-outline__leading"></div>
+                        <div class="mdc-notched-outline__notch">
+                            <label class="mdc-floating-label">Buscar</label>
+                        </div>
+                        <div class="mdc-notched-outline__trailing"></div>
+                    </div>
+                </div>
+                <div class="mdc-select mdc-select--outlined" style="flex: 1;">
+                    <div class="mdc-select__anchor">
+                        <span class="mdc-select__selected-text"></span>
+                        <span class="mdc-floating-label">Categoría</span>
+                        <i class="mdc-select__dropdown-icon"></i>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch"></div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-select__menu mdc-menu mdc-menu-surface">
+                        <ul class="mdc-list" id="category-filter">
+                            <li class="mdc-list-item mdc-list-item--selected" data-value="">Todas</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mdc-select mdc-select--outlined" style="flex: 1;">
+                    <div class="mdc-select__anchor">
+                        <span class="mdc-select__selected-text"></span>
+                        <span class="mdc-floating-label">Marca</span>
+                        <i class="mdc-select__dropdown-icon"></i>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch"></div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-select__menu mdc-menu mdc-menu-surface">
+                        <ul class="mdc-list" id="brand-filter">
+                            <li class="mdc-list-item mdc-list-item--selected" data-value="">Todas</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mdc-form-field">
+                    <div class="mdc-checkbox">
+                        <input type="checkbox" class="mdc-checkbox__native-control" id="low-inventory-filter"/>
+                        <div class="mdc-checkbox__background">
+                            <svg class="mdc-checkbox__checkmark" viewBox="0 0 24 24">
+                                <path class="mdc-checkbox__checkmark-path" fill="none" d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
+                            </svg>
+                            <div class="mdc-checkbox__mixedmark"></div>
+                        </div>
+                    </div>
+                    <label for="low-inventory-filter">Mostrar bajo inventario</label>
+                </div>
+                <button class="mdc-button mdc-button--raised" id="export-csv-btn">Exportar CSV</button>
+                <button class="mdc-button mdc-button--raised" id="export-pdf-btn">Exportar PDF</button>
+            </div>
+            <div id="restock-message" class="restock-message" style="display: none;"></div>
+            <div id="product-list" class="product-list"></div>
+        </div>
+    </main>
+    <div class="mdc-dialog" id="product-dialog">
+        <div class="mdc-dialog__container">
+            <div class="mdc-dialog__surface">
+                <h2 class="mdc-dialog__title" id="product-dialog-title">Agregar Producto</h2>
+                <div class="mdc-dialog__content dialog-content">
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="product-name" type="text" required>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Nombre</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="product-description" type="text">
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Descripción</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="image-buttons">
+                        <label class="mdc-button mdc-button--raised">
+                            Subir Imagen
+                            <input type="file" id="product-image-upload" accept="image/*" style="display: none;">
+                        </label>
+                        <label class="mdc-button mdc-button--raised">
+                            Tomar Foto
+                            <input type="file" id="product-image-capture" accept="image/*" capture="environment" style="display: none;">
+                        </label>
+                    </div>
+                    <img id="image-preview" class="image-preview" alt="Vista previa de la imagen">
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="product-price" type="number" step="0.01" min="0" required>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Precio</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="product-category" type="text" required>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Categoría</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="product-brand" type="text" required>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Marca</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="product-quantity" type="number" min="0" required>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Cantidad</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mdc-dialog__actions">
+                    <button class="mdc-button mdc-dialog__button" data-mdc-dialog-action="cancel">Cancelar</button>
+                    <button class="mdc-button mdc-dialog__button mdc-button--raised" id="save-product-btn" data-mdc-dialog-action="save">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div class="mdc-dialog__scrim"></div>
+    </div>
+    <div class="mdc-dialog" id="inventory-dialog">
+        <div class="mdc-dialog__container">
+            <div class="mdc-dialog__surface">
+                <h2 class="mdc-dialog__title">Agregar Inventario</h2>
+                <div class="mdc-dialog__content dialog-content">
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="inventory-name" type="text" required>
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Nombre del Inventario</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mdc-dialog__actions">
+                    <button class="mdc-button mdc-dialog__button" data-mdc-dialog-action="cancel">Cancelar</button>
+                    <button class="mdc-button mdc-button--raised" id="save-inventory-btn" data-mdc-dialog-action="save">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div class="mdc-dialog__scrim"></div>
+    </div>
+    <div class="mdc-dialog" id="confirm-delete-dialog">
+        <div class="mdc-dialog__container">
+            <div class="mdc-dialog__surface">
+                <h2 class="mdc-dialog__title">Confirmar Eliminación</h2>
+                <div class="mdc-dialog__content">
+                    <p>¿Estás seguro de que deseas eliminar este producto?</p>
+                </div>
+                <div class="mdc-dialog__actions">
+                    <button class="mdc-button mdc-dialog__button" data-mdc-dialog-action="cancel">Cancelar</button>
+                    <button class="mdc-button mdc-button--raised" id="confirm-delete-btn" data-mdc-dialog-action="delete">Eliminar</button>
+                </div>
+            </div>
+        </div>
+        <div class="mdc-dialog__scrim"></div>
+    </div>
+    <div class="mdc-dialog" id="confirm-delete-inventory-dialog">
+        <div class="mdc-dialog__container">
+            <div class="mdc-dialog__surface">
+                <h2 class="mdc-dialog__title">Confirmar Eliminación</h2>
+                <div class="mdc-dialog__content">
+                    <p>¿Estás seguro de que deseas eliminar este inventario?</p>
+                </div>
+                <div class="mdc-dialog__actions">
+                    <button class="mdc-button mdc-dialog__button" data-mdc-dialog-action="cancel">Cancelar</button>
+                    <button class="mdc-button mdc-button--raised" id="confirm-delete-inventory-btn" data-mdc-dialog-action="delete">Eliminar</button>
+                </div>
+            </div>
+        </div>
+        <div class="mdc-dialog__scrim"></div>
+    </div>
+    <div class="mdc-dialog" id="settings-dialog">
+        <div class="mdc-dialog__container">
+            <div class="mdc-dialog__surface">
+                <h2 class="mdc-dialog__title">Configuraciones</h2>
+                <div class="mdc-dialog__content dialog-content">
+                    <div class="mdc-text-field mdc-text-field--outlined">
+                        <input class="mdc-text-field__input" id="low-inventory-threshold" type="number" min="1">
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch">
+                                <label class="mdc-floating-label">Umbral de inventario bajo</label>
+                            </div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <div class="mdc-select mdc-select--outlined">
+                        <div class="mdc-select__anchor">
+                            <span class="mdc-select__selected-text"></span>
+                            <span class="mdc-floating-label">Tema</span>
+                            <i class="mdc-select__dropdown-icon"></i>
+                            <div class="mdc-notched-outline">
+                                <div class="mdc-notched-outline__leading"></div>
+                                <div class="mdc-notched-outline__notch"></div>
+                                <div class="mdc-notched-outline__trailing"></div>
+                            </div>
+                        </div>
+                        <div class="mdc-select__menu mdc-menu mdc-menu-surface">
+                            <ul class="mdc-list" id="theme-select">
+                                <li class="mdc-list-item" data-value="light">Claro</li>
+                                <li class="mdc-list-item" data-value="dark">Oscuro</li>
+                                <li class="mdc-list-item" data-value="blue">Azul</li>
+                                <li class="mdc-list-item" data-value="green">Verde</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="mdc-dialog__actions">
+                    <button class="mdc-button mdc-dialog__button" data-mdc-dialog-action="cancel">Cancelar</button>
+                    <button class="mdc-button mdc-button--raised" id="save-settings-btn" data-mdc-dialog-action="save">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div class="mdc-dialog__scrim"></div>
+    </div>
+    <script>
+        const { jsPDF } = window.jspdf;
+        const inventoryList = document.getElementById('inventory-list');
+        const inventoryManagement = document.getElementById('inventory-management');
+        const addProductBtn = document.getElementById('add-product-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const toggleViewBtn = document.getElementById('toggle-view-btn');
+        const addInventoryBtn = document.getElementById('add-inventory-btn');
+        const backBtn = document.getElementById('back-btn');
+        const appTitle = document.getElementById('app-title');
+        const productList = document.getElementById('product-list');
+        const searchInput = document.getElementById('search-input');
+        const categoryFilter = document.getElementById('category-filter');
+        const brandFilter = document.getElementById('brand-filter');
+        const lowInventoryFilter = document.getElementById('low-inventory-filter');
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
+        const restockMessage = document.getElementById('restock-message');
+        const lowInventoryThresholdInput = document.getElementById('low-inventory-threshold');
+        const themeSelect = document.getElementById('theme-select');
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        const productDialog = new mdc.dialog.MDCDialog(document.getElementById('product-dialog'));
+        const inventoryDialog = new mdc.dialog.MDCDialog(document.getElementById('inventory-dialog'));
+        const confirmDeleteDialog = new mdc.dialog.MDCDialog(document.getElementById('confirm-delete-dialog'));
+        const confirmDeleteInventoryDialog = new mdc.dialog.MDCDialog(document.getElementById('confirm-delete-inventory-dialog'));
+        const settingsDialog = new mdc.dialog.MDCDialog(document.getElementById('settings-dialog'));
+        const saveProductBtn = document.getElementById('save-product-btn');
+        const saveInventoryBtn = document.getElementById('save-inventory-btn');
+        const productInputs = {
+            name: document.getElementById('product-name'),
+            description: document.getElementById('product-description'),
+            price: document.getElementById('product-price'),
+            category: document.getElementById('product-category'),
+            brand: document.getElementById('product-brand'),
+            quantity: document.getElementById('product-quantity')
+        };
+        const inventoryNameInput = document.getElementById('inventory-name');
+        const imageUploadInput = document.getElementById('product-image-upload');
+        const imageCaptureInput = document.getElementById('product-image-capture');
+        const imagePreview = document.getElementById('image-preview');
+
+        const validThemes = ['light', 'dark', 'blue', 'green'];
+        let inventories = JSON.parse(localStorage.getItem('inventories')) || [
+            { id: '1', name: 'Casa', products: [], settings: { lowInventoryThreshold: 5, theme: 'light' } },
+            { id: '2', name: 'Abarrotes', products: [], settings: { lowInventoryThreshold: 5, theme: 'light' } },
+            { id: '3', name: 'Pastelería', products: [], settings: { lowInventoryThreshold: 5, theme: 'light' } }
+        ];
+        let currentInventoryId = null;
+        let currentProductId = null;
+        let isCardView = true;
+        let currentImageData = '';
+
+        // Ensure all inventories have a valid theme
+        inventories = inventories.map(inv => ({
+            ...inv,
+            settings: {
+                lowInventoryThreshold: inv.settings?.lowInventoryThreshold || 5,
+                theme: validThemes.includes(inv.settings?.theme) ? inv.settings.theme : 'light'
+            }
+        }));
+
+        function initializeMDC() {
+            document.querySelectorAll('.mdc-button').forEach(btn => new mdc.ripple.MDCRipple(btn));
+            document.querySelectorAll('.mdc-text-field').forEach(tf => new mdc.textField.MDCTextField(tf));
+            document.querySelectorAll('.mdc-select').forEach(sel => new mdc.select.MDCSelect(sel));
+            document.querySelectorAll('.mdc-checkbox').forEach(cb => new mdc.checkbox.MDCCheckbox(cb));
+            document.querySelectorAll('.mdc-form-field').forEach(ff => new mdc.formField.MDCFormField(ff));
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('touchstart', () => input.focus(), { passive: true });
+            });
+        }
+
+        function applyTheme(theme) {
+            document.body.className = `theme-${theme}`;
+        }
+
+        function saveInventories() {
+            localStorage.setItem('inventories', JSON.stringify(inventories));
+            if (currentInventoryId) {
+                updateFilters();
+                renderProducts();
+            } else {
+                renderInventories();
+            }
+        }
+
+        function calculateRestockCost(inventory) {
+            if (!inventory) return 0;
+            return inventory.products
+                .filter(p => p.quantity < inventory.settings.lowInventoryThreshold)
+                .reduce((total, p) => {
+                    const quantityNeeded = inventory.settings.lowInventoryThreshold - p.quantity;
+                    return total + (quantityNeeded * p.price);
+                }, 0);
+        }
+
+        function renderInventories() {
+            inventoryList.style.display = 'grid';
+            inventoryManagement.style.display = 'none';
+            backBtn.style.display = 'none';
+            addProductBtn.style.display = 'none';
+            settingsBtn.style.display = 'none';
+            toggleViewBtn.style.display = 'none';
+            appTitle.textContent = 'Inventario Móvil';
+            applyTheme('light');
+            inventoryList.innerHTML = inventories.map(inv => `
+                <div class="mdc-card" onclick="selectInventory('${inv.id}')">
+                    <div class="inventory-card">
+                        <h3>${inv.name}</h3>
+                        <button class="mdc-button mdc-button--outlined" onclick="event.stopPropagation(); deleteInventory('${inv.id}')">Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+            document.querySelectorAll('.mdc-button').forEach(btn => new mdc.ripple.MDCRipple(btn));
+        }
+
+        function selectInventory(id) {
+            currentInventoryId = id;
+            const inventory = inventories.find(inv => inv.id === id);
+            if (!inventory) return;
+            appTitle.textContent = `Inventario: ${inventory.name}`;
+            lowInventoryFilter.checked = false;
+            const theme = validThemes.includes(inventory.settings.theme) ? inventory.settings.theme : 'light';
+            const themeOption = themeSelect.querySelector(`[data-value="${theme}"]`);
+            if (themeOption) {
+                themeSelect.querySelectorAll('.mdc-list-item').forEach(item => item.classList.remove('mdc-list-item--selected'));
+                themeOption.classList.add('mdc-list-item--selected');
+            }
+            applyTheme(theme);
+            inventoryList.style.display = 'none';
+            inventoryManagement.style.display = 'block';
+            backBtn.style.display = 'block';
+            addProductBtn.style.display = 'block';
+            settingsBtn.style.display = 'block';
+            toggleViewBtn.style.display = 'block';
+            updateFilters();
+            renderProducts();
+        }
+
+        function updateFilters() {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            const categories = [...new Set(inventory.products.map(p => p.category))];
+            const brands = [...new Set(inventory.products.map(p => p.brand))];
+            categoryFilter.innerHTML = `<li class="mdc-list-item mdc-list-item--selected" data-value="">Todas</li>` +
+                categories.map(cat => `<li class="mdc-list-item" data-value="${cat}">${cat}</li>`).join('');
+            brandFilter.innerHTML = `<li class="mdc-list-item mdc-list-item--selected" data-value="">Todas</li>` +
+                brands.map(brand => `<li class="mdc-list-item" data-value="${brand}">${brand}</li>`).join('');
+        }
+
+        function renderProducts() {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            const search = searchInput.value.toLowerCase();
+            const category = document.querySelector('#category-filter .mdc-list-item--selected')?.dataset.value || '';
+            const brand = document.querySelector('#brand-filter .mdc-list-item--selected')?.dataset.value || '';
+            const showLowInventory = lowInventoryFilter.checked;
+            const filteredProducts = inventory.products.filter(p =>
+                p.name.toLowerCase().includes(search) &&
+                (!category || p.category === category) &&
+                (!brand || p.brand === brand) &&
+                (!showLowInventory || p.quantity <= inventory.settings.lowInventoryThreshold)
+            );
+            productList.className = `product-list ${isCardView ? '' : 'list-view'}`;
+            productList.innerHTML = filteredProducts.map(p => `
+                <div class="mdc-card ${p.quantity <= inventory.settings.lowInventoryThreshold ? 'low-inventory' : ''}">
+                    <div class="product-card">
+                        <img src="${p.image || 'https://via.placeholder.com/64'}" alt="${p.name}">
+                        <div>
+                            <h3>${p.name}</h3>
+                            <p>${p.description}</p>
+                            <p>Precio: $${parseFloat(p.price).toFixed(2)}</p>
+                            <p>Categoría: ${p.category}</p>
+                            <p>Marca: ${p.brand}</p>
+                            <p>Cantidad: ${p.quantity} ${p.quantity <= inventory.settings.lowInventoryThreshold ? '<span style="color: red;">(Bajo inventario)</span>' : ''}</p>
+                            <button class="mdc-button mdc-button--outlined" onclick="adjustQuantity('${p.id}', 1)">+1</button>
+                            <button class="mdc-button mdc-button--outlined" onclick="adjustQuantity('${p.id}', -1)">-1</button>
+                            <button class="mdc-button mdc-button--outlined" onclick="editProduct('${p.id}')">Editar</button>
+                            <button class="mdc-button mdc-button--outlined" onclick="deleteProduct('${p.id}')">Eliminar</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            if (showLowInventory) {
+                const restockCost = calculateRestockCost(inventory);
+                restockMessage.style.display = 'block';
+                restockMessage.textContent = `Costo para reabastecer el inventario por encima del umbral: $${restockCost.toFixed(2)}`;
+            } else {
+                restockMessage.style.display = 'none';
+            }
+            document.querySelectorAll('.mdc-button').forEach(btn => new mdc.ripple.MDCRipple(btn));
+        }
+
+        function adjustQuantity(id, change) {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            const product = inventory.products.find(p => p.id === id);
+            if (product) {
+                product.quantity = Math.max(0, product.quantity + change);
+                saveInventories();
+            }
+        }
+
+        function editProduct(id) {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            currentProductId = id;
+            const product = inventory.products.find(p => p.id === id);
+            if (product) {
+                productInputs.name.value = product.name;
+                productInputs.description.value = product.description;
+                productInputs.price.value = product.price;
+                productInputs.category.value = product.category;
+                productInputs.brand.value = product.brand;
+                productInputs.quantity.value = product.quantity;
+                currentImageData = product.image || '';
+                imagePreview.src = currentImageData || 'https://via.placeholder.com/64';
+                imagePreview.style.display = currentImageData ? 'block' : 'none';
+                document.getElementById('product-dialog-title').textContent = 'Editar Producto';
+                productDialog.open();
+            }
+        }
+
+        function deleteProduct(id) {
+            currentProductId = id;
+            confirmDeleteDialog.open();
+        }
+
+        function deleteInventory(id) {
+            currentInventoryId = id;
+            confirmDeleteInventoryDialog.open();
+        }
+
+        function handleImageInput(fileInput) {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImageData = e.target.result;
+                    imagePreview.src = currentImageData;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        imageUploadInput.addEventListener('change', () => handleImageInput(imageUploadInput));
+        imageCaptureInput.addEventListener('change', () => handleImageInput(imageCaptureInput));
+
+        productDialog.listen('MDCDialog:opening', () => {
+            if (!currentProductId) {
+                currentImageData = '';
+                imagePreview.src = 'https://via.placeholder.com/64';
+                imagePreview.style.display = 'none';
+            }
+        });
+
+        function exportToCSV() {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory || !inventory.products.length) {
+                alert('No hay productos para exportar.');
+                return;
+            }
+            const search = searchInput.value.toLowerCase();
+            const category = document.querySelector('#category-filter .mdc-list-item--selected')?.dataset.value || '';
+            const brand = document.querySelector('#brand-filter .mdc-list-item--selected')?.dataset.value || '';
+            const showLowInventory = lowInventoryFilter.checked;
+            const filteredProducts = inventory.products.filter(p =>
+                p.name.toLowerCase().includes(search) &&
+                (!category || p.category === category) &&
+                (!brand || p.brand === brand) &&
+                (!showLowInventory || p.quantity <= inventory.settings.lowInventoryThreshold)
+            );
+            if (!filteredProducts.length) {
+                alert('No hay productos que coincidan con los filtros seleccionados.');
+                return;
+            }
+            const csv = [
+                'Nombre,Descripción,Imagen,Precio,Categoría,Marca,Cantidad',
+                ...filteredProducts.map(p => `"${p.name.replace(/"/g, '""')}","${p.description.replace(/"/g, '""')}","${p.image || ''}",${p.price},"${p.category.replace(/"/g, '""')}","${p.brand.replace(/"/g, '""')}",${p.quantity}`)
+            ].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inventario_${inventory.name}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportToPDF() {
+            if (!window.jspdf) {
+                alert('Error al cargar la librería jsPDF. Por favor, intenta de nuevo.');
+                return;
+            }
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory || !inventory.products.length) {
+                alert('No hay productos para exportar.');
+                return;
+            }
+            const search = searchInput.value.toLowerCase();
+            const category = document.querySelector('#category-filter .mdc-list-item--selected')?.dataset.value || '';
+            const brand = document.querySelector('#brand-filter .mdc-list-item--selected')?.dataset.value || '';
+            const showLowInventory = lowInventoryFilter.checked;
+            const filteredProducts = inventory.products.filter(p =>
+                p.name.toLowerCase().includes(search) &&
+                (!category || p.category === category) &&
+                (!brand || p.brand === brand) &&
+                (!showLowInventory || p.quantity <= inventory.settings.lowInventoryThreshold)
+            );
+            if (!filteredProducts.length) {
+                alert('No hay productos que coincidan con los filtros seleccionados.');
+                return;
+            }
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            let y = 20;
+            doc.text(`Inventario: ${inventory.name}`, 20, y);
+            if (showLowInventory) {
+                const restockCost = calculateRestockCost(inventory);
+                y += 10;
+                doc.setFontSize(12);
+                doc.text(`Umbral de inventario bajo: ${inventory.settings.lowInventoryThreshold}`, 20, y);
+                y += 10;
+                doc.text(`Costo para reabastecer el inventario por encima del umbral: $${restockCost.toFixed(2)}`, 20, y);
+            }
+            y += 10;
+            doc.setFontSize(12);
+            filteredProducts.forEach((p, i) => {
+                if (y > 250) {
+                    doc.addPage();
+                    y = 20;
+                }
+                // Add image if available
+                if (p.image && p.image.startsWith('data:image/')) {
+                    try {
+                        doc.addImage(p.image, 'JPEG', 20, y, 30, 30); // 30x30mm image
+                    } catch (e) {
+                        console.error('Error al agregar la imagen al PDF:', e);
+                    }
+                }
+                // Text starts to the right of the image
+                const textX = p.image && p.image.startsWith('data:image/') ? 55 : 20;
+                doc.text(`Nombre: ${p.name}`, textX, y + 5);
+                doc.text(`Descripción: ${p.description}`, textX, y + 15);
+                doc.text(`Precio: $${parseFloat(p.price).toFixed(2)}`, textX, y + 25);
+                doc.text(`Categoría: ${p.category}`, textX, y + 35);
+                doc.text(`Marca: ${p.brand}`, textX, y + 45);
+                doc.text(`Cantidad: ${p.quantity}`, textX, y + 55);
+                if (showLowInventory) {
+                    const quantityToBuy = p.quantity < inventory.settings.lowInventoryThreshold 
+                        ? inventory.settings.lowInventoryThreshold - p.quantity 
+                        : 0;
+                    doc.text(`Cantidad a comprar: ${quantityToBuy}`, textX, y + 65);
+                    y += 75;
+                } else {
+                    y += 65;
+                }
+            });
+            doc.save(`inventario_${inventory.name}.pdf`);
+        }
+
+        exportCsvBtn.addEventListener('click', exportToCSV);
+        exportPdfBtn.addEventListener('click', exportToPDF);
+
+        addProductBtn.addEventListener('click', () => {
+            currentProductId = null;
+            document.getElementById('product-dialog-title').textContent = 'Agregar Producto';
+            Object.values(productInputs).forEach(input => input.value = '');
+            currentImageData = '';
+            imagePreview.src = 'https://via.placeholder.com/64';
+            imagePreview.style.display = 'none';
+            productDialog.open();
+        });
+
+        addInventoryBtn.addEventListener('click', () => {
+            inventoryNameInput.value = '';
+            inventoryDialog.open();
+        });
+
+        backBtn.addEventListener('click', () => {
+            currentInventoryId = null;
+            renderInventories();
+        });
+
+        settingsBtn.addEventListener('click', () => {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            lowInventoryThresholdInput.value = inventory.settings.lowInventoryThreshold;
+            const theme = validThemes.includes(inventory.settings.theme) ? inventory.settings.theme : 'light';
+            const themeOption = themeSelect.querySelector(`[data-value="${theme}"]`);
+            if (themeOption) {
+                themeSelect.querySelectorAll('.mdc-list-item').forEach(item => item.classList.remove('mdc-list-item--selected'));
+                themeOption.classList.add('mdc-list-item--selected');
+            }
+            settingsDialog.open();
+        });
+
+        toggleViewBtn.addEventListener('click', () => {
+            isCardView = !isCardView;
+            toggleViewBtn.textContent = isCardView ? 'view_module' : 'view_list';
+            renderProducts();
+        });
+
+        saveProductBtn.addEventListener('click', () => {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            const product = {
+                id: currentProductId || Date.now().toString(),
+                name: productInputs.name.value,
+                description: productInputs.description.value,
+                image: currentImageData,
+                price: parseFloat(productInputs.price.value),
+                category: productInputs.category.value,
+                brand: productInputs.brand.value,
+                quantity: parseInt(productInputs.quantity.value)
+            };
+            if (!product.name || isNaN(product.price) || !product.category || !product.brand || isNaN(product.quantity)) {
+                alert('Por favor, completa todos los campos requeridos con valores válidos.');
+                return;
+            }
+            if (currentProductId) {
+                const index = inventory.products.findIndex(p => p.id === currentProductId);
+                inventory.products[index] = product;
+            } else {
+                inventory.products.push(product);
+            }
+            saveInventories();
+            productDialog.close();
+        });
+
+        saveInventoryBtn.addEventListener('click', () => {
+            const name = inventoryNameInput.value.trim();
+            if (!name) {
+                alert('Por favor, ingresa un nombre para el inventario.');
+                return;
+            }
+            inventories.push({
+                id: Date.now().toString(),
+                name,
+                products: [],
+                settings: { lowInventoryThreshold: 5, theme: 'light' }
+            });
+            saveInventories();
+            inventoryDialog.close();
+        });
+
+        confirmDeleteDialog.listen('MDCDialog:closed', (event) => {
+            if (event.detail.action !== 'delete') return;
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (inventory) {
+                inventory.products = inventory.products.filter(p => p.id !== currentProductId);
+                saveInventories();
+            }
+        });
+
+        confirmDeleteInventoryDialog.listen('MDCDialog:closed', (event) => {
+            if (event.detail.action !== 'delete') return;
+            inventories = inventories.filter(inv => inv.id !== currentInventoryId);
+            currentInventoryId = null;
+            saveInventories();
+        });
+
+        saveSettingsBtn.addEventListener('click', () => {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (!inventory) return;
+            const threshold = parseInt(lowInventoryThresholdInput.value);
+            const selectedTheme = themeSelect.querySelector('.mdc-list-item--selected').dataset.value;
+            if (threshold > 0 && validThemes.includes(selectedTheme)) {
+                inventory.settings.lowInventoryThreshold = threshold;
+                inventory.settings.theme = selectedTheme;
+                applyTheme(selectedTheme);
+                saveInventories();
+                settingsDialog.close();
+            } else {
+                alert('Por favor, ingresa un umbral válido y selecciona un tema.');
+            }
+        });
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchInput.timeout);
+            searchInput.timeout = setTimeout(renderProducts, 300);
+        });
+
+        lowInventoryFilter.addEventListener('change', renderProducts);
+        categoryFilter.parentElement.parentElement.addEventListener('MDCSelect:change', renderProducts);
+        brandFilter.parentElement.parentElement.addEventListener('MDCSelect:change', renderProducts);
+        themeSelect.parentElement.parentElement.addEventListener('MDCSelect:change', () => {
+            const inventory = inventories.find(inv => inv.id === currentInventoryId);
+            if (inventory) {
+                const selectedTheme = themeSelect.querySelector('.mdc-list-item--selected').dataset.value;
+                if (validThemes.includes(selectedTheme)) {
+                    inventory.settings.theme = selectedTheme;
+                    applyTheme(selectedTheme);
+                    saveInventories();
+                }
+            }
+        });
+
+        initializeMDC();
+        renderInventories();
+    </script>
+</body>
+</html>

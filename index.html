@@ -642,14 +642,24 @@
                             <p>Categoría: ${p.category}</p>
                             <p>Marca: ${p.brand}</p>
                             <p>Cantidad: ${p.quantity} ${p.quantity <= inventory.settings.lowInventoryThreshold ? '<span style="color: red;">(Bajo inventario)</span>' : ''}</p>
-                            <button class="mdc-button mdc-button--outlined" onclick="adjustQuantity('${p.id}', 1)">+1</button>
-                            <button class="mdc-button mdc-button--outlined" onclick="adjustQuantity('${p.id}', -1)">-1</button>
-                            <button class="mdc-button mdc-button--outlined" onclick="editProduct('${p.id}')">Editar</button>
-                            <button class="mdc-button mdc-button--outlined" onclick="deleteProduct('${p.id}')">Eliminar</button>
+                            <button class="mdc-button mdc-button--outlined quantity-btn" data-id="${p.id}" data-change="1">+1</button>
+                            <button class="mdc-button mdc-button--outlined quantity-btn" data-id="${p.id}" data-change="-1">-1</button>
+                            <button class="mdc-button mdc-button--outlined" onclick="event.stopPropagation(); editProduct('${p.id}')">Editar</button>
+                            <button class="mdc-button mdc-button--outlined" onclick="event.stopPropagation(); deleteProduct('${p.id}')">Eliminar</button>
                         </div>
                     </div>
                 </div>
             `).join('');
+            // Initialize button event listeners for quantity adjustments
+            document.querySelectorAll('.quantity-btn').forEach(btn => {
+                // Remove existing listeners to prevent duplicates
+                btn.removeEventListener('click', handleQuantityClick);
+                btn.removeEventListener('touchstart', handleQuantityTouch);
+                // Add click and touchstart listeners
+                btn.addEventListener('click', handleQuantityClick, { passive: true });
+                btn.addEventListener('touchstart', handleQuantityTouch, { passive: true });
+                new mdc.ripple.MDCRipple(btn);
+            });
             if (showLowInventory) {
                 const restockCost = calculateRestockCost(inventory);
                 restockMessage.style.display = 'block';
@@ -657,7 +667,26 @@
             } else {
                 restockMessage.style.display = 'none';
             }
-            document.querySelectorAll('.mdc-button').forEach(btn => new mdc.ripple.MDCRipple(btn));
+        }
+
+        function handleQuantityClick(event) {
+            event.stopPropagation();
+            const btn = event.currentTarget;
+            const id = btn.dataset.id;
+            const change = parseInt(btn.dataset.change);
+            adjustQuantity(id, change);
+        }
+
+        function handleQuantityTouch(event) {
+            event.stopPropagation();
+            const btn = event.currentTarget;
+            const id = btn.dataset.id;
+            const change = parseInt(btn.dataset.change);
+            adjustQuantity(id, change);
+            // Force reflow to ensure UI update
+            productList.style.display = 'none';
+            productList.offsetHeight; // Trigger reflow
+            productList.style.display = 'grid';
         }
 
         function adjustQuantity(id, change) {

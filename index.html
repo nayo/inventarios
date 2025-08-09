@@ -332,7 +332,7 @@
                         </div>
                     </div>
                     <div class="mdc-text-field mdc-text-field--outlined">
-                        <input class="mdc-text-field__input" id="product-category" type="text" required>
+                        <input class="mdc-text-field__input" id="product-category" type="text" >
                         <div class="mdc-notched-outline">
                             <div class="mdc-notched-outline__leading"></div>
                             <div class="mdc-notched-outline__notch">
@@ -342,7 +342,7 @@
                         </div>
                     </div>
                     <div class="mdc-text-field mdc-text-field--outlined">
-                        <input class="mdc-text-field__input" id="product-brand" type="text" required>
+                        <input class="mdc-text-field__input" id="product-brand" type="text" >
                         <div class="mdc-notched-outline">
                             <div class="mdc-notched-outline__leading"></div>
                             <div class="mdc-notched-outline__notch">
@@ -881,9 +881,12 @@
             renderInventories();
         });
 
-        settingsBtn.addEventListener('click', () => {
+        settingsBtn.addEventListener('click', (e) => {
             const inventory = inventories.find(inv => inv.id === currentInventoryId);
-            if (!inventory) return;
+            if (!inventory) {
+                e.stopImmediatePropagation(); 
+                return;
+            }
             lowInventoryThresholdInput.value = inventory.settings.lowInventoryThreshold;
             const theme = validThemes.includes(inventory.settings.theme) ? inventory.settings.theme : 'light';
             const themeOption = themeSelect.querySelector(`[data-value="${theme}"]`);
@@ -900,9 +903,12 @@
             renderProducts();
         });
 
-        saveProductBtn.addEventListener('click', () => {
+        saveProductBtn.addEventListener('click', (e) => {
             const inventory = inventories.find(inv => inv.id === currentInventoryId);
-            if (!inventory) return;
+            if (!inventory) {
+                e.stopImmediatePropagation(); 
+                return;
+            }
             const product = {
                 id: currentProductId || Date.now().toString(),
                 name: productInputs.name.value,
@@ -915,6 +921,7 @@
             };
             if (!product.name || isNaN(product.price) || !product.category || !product.brand || isNaN(product.quantity)) {
                 alert('Por favor, completa todos los campos requeridos con valores válidos.');
+                e.stopImmediatePropagation(); 
                 return;
             }
             if (currentProductId) {
@@ -927,10 +934,11 @@
             productDialog.close();
         });
 
-        saveInventoryBtn.addEventListener('click', () => {
+        saveInventoryBtn.addEventListener('click', (e) => {
             const name = inventoryNameInput.value.trim();
             if (!name) {
                 alert('Por favor, ingresa un nombre para el inventario.');
+                e.stopImmediatePropagation(); 
                 return;
             }
             inventories.push({
@@ -943,8 +951,11 @@
             inventoryDialog.close();
         });
 
-        confirmDeleteDialog.listen('MDCDialog:closed', (event) => {
-            if (event.detail.action !== 'delete') return;
+        confirmDeleteDialog.listen('MDCDialog:closed', (e) => {
+            if (e.detail.action !== 'delete') {
+                e.stopImmediatePropagation(); 
+                return;
+            }
             const inventory = inventories.find(inv => inv.id === currentInventoryId);
             if (inventory) {
                 inventory.products = inventory.products.filter(p => p.id !== currentProductId);
@@ -952,8 +963,11 @@
             }
         });
 
-        confirmDeleteInventoryDialog.listen('MDCDialog:closed', (event) => {
-            if (event.detail.action !== 'delete') return;
+        confirmDeleteInventoryDialog.listen('MDCDialog:closed', (e) => {
+            if (e.detail.action !== 'delete') { 
+                e.stopImmediatePropagation(); 
+                return;
+            }
             inventories = inventories.filter(inv => inv.id !== currentInventoryId);
             currentInventoryId = null;
             saveInventories();

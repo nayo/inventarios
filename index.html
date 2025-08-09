@@ -919,7 +919,7 @@
                 brand: productInputs.brand.value,
                 quantity: parseInt(productInputs.quantity.value)
             };
-            if (!product.name || isNaN(product.price) || !product.category || !product.brand || isNaN(product.quantity)) {
+            if (!product.name || isNaN(product.price) || isNaN(product.quantity)) {
                 alert('Por favor, completa todos los campos requeridos con valores válidos.');
                 e.stopImmediatePropagation(); 
                 return;
